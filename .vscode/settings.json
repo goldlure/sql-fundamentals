@@ -47,6 +47,15 @@
       "askForPassword": false,
       "password": "theWindi$bl0wing",
       "connectionTimeout": 15
+    },
+    {
+      "database": "postgres",
+      "dialect": "PostgreSQL",
+      "name": "pstgr",
+      "password": "1234",
+      "port": 5432,
+      "server": "localhost",
+      "username": "postgres"
     }
   ]
 }

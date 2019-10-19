@@ -11,6 +11,7 @@ export const ALL_ORDERS_COLUMNS = [
 ];
 export const ORDER_COLUMNS = ['*'];
 
+
 /**
  * @typedef OrderCollectionOptions
  * @property {number} page Page number (zero-indexed)
@@ -24,8 +25,9 @@ export const ORDER_COLUMNS = ['*'];
  * Defaults values to use when parts of OrderCollectionOptions are not provided
  * @type {Readonly<OrderCollectionOptions>}
  */
+
 const DEFAULT_ORDER_COLLECTION_OPTIONS = Object.freeze(
-  /** @type {OrderCollectionOptions}*/ ({
+  /** @type {OrderCollectionOptions}*/({
     order: 'asc',
     page: 1,
     perPage: 20,
@@ -48,23 +50,26 @@ export async function getAllOrders(opts = {}, whereClause = '') {
     ...DEFAULT_ORDER_COLLECTION_OPTIONS,
     ...opts
   };
- 
-  let sortClause = '';
-  if (options.sort && options.order){
-    //ORDER BY customerID DESC
-    sortClause = sql`ORDER BY ${options.sort} ${options.order.toUpperCase()}`
-  }
-  
-  let paginationClause = '';
-  if (typeof options.page !== 'undefined' && options.perPage){
-    paginationClause = sql`LIMIT ${options.perPage} OFFSET ${(options.page -1) * options.perPage}`
-  }
   const db = await getDb();
+  const {order, sort, page, perPage} =options;
+  let sortClause = '';
+  if (order) {
+    //ORDER BY customerID DESC
+    sortClause = sql`ORDER BY o.${sort} ${order.toUpperCase()}`
+  }
+
+  let paginationClause = sql`LIMIT ${perPage} OFFSET ${(page - 1) * perPage}`;
+  
+  
   return await db.all(sql`
-SELECT ${ALL_ORDERS_COLUMNS.join(',')}
-FROM CustomerOrder ${whereClause}
-${sortClause}
-${paginationClause}`);
+SELECT ${ALL_ORDERS_COLUMNS.map(c => `o.${c}`).join(',')},
+  c.companyname AS customername,
+  e.lastname AS employeename
+FROM CustomerOrder AS o 
+LEFT JOIN Customer AS c ON o.customerid = c.id
+LEFT JOIN Employee AS e ON o.employeeid = e.id
+  ${sortClause}
+  ${paginationClause}`);
 }
 
 /**
@@ -74,9 +79,10 @@ ${paginationClause}`);
  */
 export async function getCustomerOrders(customerId, opts = {}) {
   // ! This is going to retrieve ALL ORDERS, not just the ones that belong to a particular customer. We'll need to fix this
-  let options = { ...{ page: 1, perPage: 20, sort: 'shippeddate', order: 'asc' }, ...opts};
+  let options = {  page: 1, perPage: 20, sort: 'shippeddate', order: 'asc', ...opts };
+  const {order, sort, page, perPage} = options;
   // @ts-ignore
-  return getAllOrders(options, sql`WHERE customerid = '${customerId}'`);
+  return getAllOrders(options, sql`WHERE co.customerid = '${customerId}'`);
 }
 
 /**
@@ -88,9 +94,13 @@ export async function getOrder(id) {
   const db = await getDb();
   return await db.get(
     sql`
-SELECT *
-FROM CustomerOrder
-WHERE id = $1`,
+SELECT ${ALL_ORDERS_COLUMNS.map(x => `co.${x}`).join(',')},
+c.companyname AS customername,
+e.lastname AS employeename
+FROM CustomerOrder AS co
+LEFT JOIN Customer AS c ON co.customerid = c.id
+LEFT JOIN Employee AS e ON co.employeeid = e.id
+WHERE co.id = $1`,
     id
   );
 }
